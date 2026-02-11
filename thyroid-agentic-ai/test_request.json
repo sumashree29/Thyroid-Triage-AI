@@ -1,0 +1,10 @@
+{
+    "patient_id": "TEST001",
+    "patient_data": {
+        "age": 45,
+        "sex": "F",
+        "tsh": 8.5
+    },
+    "audience": "doctor",
+    "include_full_report": true
+}

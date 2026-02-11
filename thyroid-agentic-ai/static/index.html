@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thyroid Triage AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="bg-animation"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M2 17L12 22L22 17" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M2 12L12 17L22 12" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <h1>Thyroid Triage AI</h1>
+            </div>
+            <div class="status-pill">System Status: <span id="system-status">Checking...</span></div>
+        </header>
+
+        <main>
+            <div class="grid">
+                <!-- Input Panel -->
+                <section class="card input-panel">
+                    <h2>Patient Parameters</h2>
+                    <form id="triage-form">
+                        <div class="form-group">
+                            <label for="input-age">Age</label>
+                            <input type="number" id="input-age" name="age" min="0" max="150" required
+                                placeholder="e.g. 45">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-sex">Sex</label>
+                            <div class="radio-group">
+                                <input type="radio" id="sex-m" name="sex" value="M" required>
+                                <label for="sex-m">Male</label>
+                                <input type="radio" id="sex-f" name="sex" value="F">
+                                <label for="sex-f">Female</label>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <div class="form-group">
+                            <label for="input-tsh">TSH (mIU/L) <span class="required">*</span></label>
+                            <input type="number" id="input-tsh" name="tsh" step="0.01" min="0" required
+                                placeholder="0.4 - 4.0">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="input-t3">T3</label>
+                                <input type="number" id="input-t3" name="t3" step="0.01" placeholder="Optional">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-tt4">Total T4</label>
+                                <input type="number" id="input-tt4" name="tt4" step="0.01" placeholder="Optional">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="input-t4u">T4U</label>
+                                <input type="number" id="input-t4u" name="t4u" step="0.01" placeholder="Optional">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-fti">FTI</label>
+                                <input type="number" id="input-fti" name="fti" step="0.01" placeholder="Optional">
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <div class="form-group">
+                            <label for="input-audience">Output For</label>
+                            <select id="input-audience" name="audience">
+                                <option value="doctor">Clinician (Detailed)</option>
+                                <option value="patient">Patient (Simplified)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="input-full-report" name="include_full_report" checked>
+                            <label for="input-full-report">Generative AI Full Report</label>
+                        </div>
+
+                        <button type="submit" class="cta-button" id="analyze-btn">
+                            <span class="btn-text">Run Analysis</span>
+                            <span class="btn-loader"></span>
+                        </button>
+                    </form>
+                </section>
+
+                <!-- Results Panel -->
+                <section class="card result-panel" id="result-panel">
+                    <div class="placeholder-state" id="placeholder-state">
+                        <div class="icon-pulse">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5">
+                                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path d="M9 12l2 2 4-4" />
+                            </svg>
+                        </div>
+                        <h3>Ready for Analysis</h3>
+                        <p>Enter patient vitals to generate risk assessment.</p>
+                    </div>
+
+                    <div class="results-content hidden" id="results-content">
+                        <!-- View Toggle -->
+                        <div class="view-toggle">
+                            <button class="toggle-btn active" id="btn-patient-view" onclick="showPatientView()">
+                                👤 Patient View
+                            </button>
+                            <button class="toggle-btn" id="btn-doctor-view" onclick="showDoctorView()">
+                                ⚕️ Doctor View
+                            </button>
+                        </div>
+
+                        <div class="score-card">
+                            <div class="score-meta">
+                                <span class="label">Priority</span>
+                                <h2 id="res-category">ROUTINE</h2>
+                            </div>
+                            <div class="score-circle">
+                                <svg viewBox="0 0 36 36" class="circular-chart">
+                                    <path class="circle-bg"
+                                        d="M18 2.0845 a 15.9155 15.9155 10 0 1 0 31.831 a 15.9155 15.9155 1 0 0 1 0 -31.831" />
+                                    <path class="circle" id="score-ring" stroke-dasharray="0, 100"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                </svg>
+                                <div class="percentage">
+                                    <span id="res-score">0%</span>
+                                    <span class="sub">Risk</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="summary-section">
+                            <h3>AI Summary</h3>
+                            <p id="res-summary">Processing...</p>
+                        </div>
+
+                        <div class="details-section" id="res-full-report-container">
+                            <details>
+                                <summary>Detailed Clinical Report</summary>
+                                <div class="report-body" id="res-full-report"></div>
+                            </details>
+                        </div>
+
+                        <div class="meta-info">
+                            <span>Confidence: <strong id="res-confidence">--</strong></span>
+                            <span>ID: <span id="res-id">--</span></span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

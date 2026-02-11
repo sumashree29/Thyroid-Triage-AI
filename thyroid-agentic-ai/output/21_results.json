@@ -1,0 +1,14 @@
+{
+  "patient_id": "21",
+  "risk_score": 0.5,
+  "confidence": 0.0,
+  "triage_category": "HIGH PRIORITY",
+  "evidence_sources": [
+    "Endocrine Society",
+    "Laboratory Medicine",
+    "Endocrine Society",
+    "American Thyroid Association (ATA)",
+    "Endocrine Society"
+  ],
+  "status": "success"
+}

@@ -1,0 +1,188 @@
+"""
+Medical Knowledge Base Initialization
+Creates vector store with clinical guidelines and evidence for RAG.
+"""
+
+import json
+from pathlib import Path
+from typing import List, Dict, Optional
+
+
+# Clinical Guidelines and Medical Evidence
+MEDICAL_GUIDELINES = {
+    "TSH_Normal_Range": {
+        "content": "Normal TSH range is 0.45-4.5 mIU/L. Values outside this range may indicate thyroid dysfunction. TSH >4.5 suggests hypothyroidism, TSH <0.45 suggests hyperthyroidism.",
+        "source": "American Thyroid Association (ATA)",
+        "category": "diagnostic",
+        "severity": "critical"
+    },
+    
+    "Hypothyroidism_Clinical": {
+        "content": "Hypothyroidism presents with fatigue, weight gain, cold intolerance, constipation, dry skin, and depression. Caused by insufficient thyroid hormone. Treatment: levothyroxine replacement therapy with TSH monitoring every 6-8 weeks until stable, then annually.",
+        "source": "WHO Clinical Guidelines",
+        "category": "treatment",
+        "severity": "high"
+    },
+    
+    "Hyperthyroidism_Clinical": {
+        "content": "Hyperthyroidism presents with palpitations, anxiety, weight loss, heat intolerance, tremor, and insomnia. Caused by excess thyroid hormone. Treatment options: antithyroid drugs (PTU/MMI), beta-blockers, or radioactive iodine/surgery for definitive management.",
+        "source": "American Thyroid Association (ATA)",
+        "category": "treatment",
+        "severity": "high"
+    },
+    
+    "TSH_Monitoring": {
+        "content": "Initial TSH measurement is primary screening test for thyroid disease. If abnormal, confirm with free T4 (fT4). Repeat testing: hypothyroid patients need monitoring 6-8 weeks after each dose change, then annually when stable. Hyperthyroid patients need monitoring every 4-6 weeks until euthyroid.",
+        "source": "Endocrine Society",
+        "category": "monitoring",
+        "severity": "high"
+    },
+    
+    "Pregnancy_Thyroid": {
+        "content": "Pregnant patients require special thyroid management. TSH target: first trimester <2.5 mIU/L, second/third <3.0 mIU/L. Levothyroxine dose often increases 25-30% during pregnancy. Monitor TSH every 6-8 weeks.",
+        "source": "American Thyroid Association",
+        "category": "special_populations",
+        "severity": "critical"
+    },
+    
+    "Levothyroxine_Dosing": {
+        "content": "Levothyroxine starting dose: typical 25-50 mcg daily, titrate by 25-50 mcg every 6-8 weeks based on TSH response. Average maintenance: 75-100 mcg daily. Take on empty stomach, separate from supplements by 4+ hours. Brand consistency recommended (bioavailability varies).",
+        "source": "Pharmacy Guidelines",
+        "category": "medication",
+        "severity": "high"
+    },
+    
+    "TSH_Suppression_Therapy": {
+        "content": "TSH suppression therapy for thyroid cancer: maintain TSH <0.5 mIU/L (or <0.1 in high-risk cases) post-treatment. Requires higher levothyroxine doses and careful monitoring. Increased cardiovascular and bone risks with long-term suppression.",
+        "source": "American Thyroid Association",
+        "category": "special_treatment",
+        "severity": "critical"
+    },
+    
+    "Subclinical_Hypothyroidism": {
+        "content": "Subclinical hypothyroidism: elevated TSH (4.5-10 mIU/L) with normal free T4. Treatment decision based on symptoms, age, and antibody status. Screening recommended in women >50, men >65, or if symptomatic. Annual monitoring if untreated.",
+        "source": "Endocrine Society",
+        "category": "diagnostic",
+        "severity": "medium"
+    },
+    
+    "Thyroid_Antibodies": {
+        "content": "TPO antibodies indicate autoimmune thyroiditis (Hashimoto's). TSI/TRAb antibodies indicate Graves' disease. Presence increases risk of progression to overt thyroid disease. Monitor TSH more frequently if antibodies positive.",
+        "source": "Clinical Laboratory Standards",
+        "category": "diagnostic",
+        "severity": "medium"
+    },
+    
+    "Drug_Interactions_Levothyroxine": {
+        "content": "Levothyroxine absorption reduced by: calcium, iron, magnesium, aluminum antacids, proton pump inhibitors. Separate administration by 4+ hours. Monitor TSH if adding/removing these medications. Phenytoin, rifampin increase T4 clearance (may need dose increase).",
+        "source": "Drug Interaction Database",
+        "category": "medication",
+        "severity": "high"
+    },
+    
+    "Free_T4_Interpretation": {
+        "content": "Free T4 measures unbound, biologically active thyroid hormone. Normal range varies by lab (typically 0.8-1.8 ng/dL). Low fT4 + high TSH = primary hypothyroidism. Low fT4 + low TSH = central hypothyroidism or secondary hypothyroidism.",
+        "source": "Clinical Laboratory Standards",
+        "category": "diagnostic",
+        "severity": "high"
+    },
+    
+    "T3_Testing": {
+        "content": "Total T3 and Free T3 less commonly used than TSH/fT4 but helpful in: suspected T3 toxicosis (low TSH, normal T4, elevated T3), assessing severity of hyperthyroidism, evaluating symptoms with normal TSH/T4.",
+        "source": "Laboratory Medicine",
+        "category": "diagnostic",
+        "severity": "medium"
+    },
+    
+    "Thyroiditis": {
+        "content": "Thyroiditis (inflammation): acute suppurative, subacute viral, autoimmune. Presents with neck pain, fever, hyperthyroid phase (high free T4, low TSH) followed by hypothyroid phase. Treatment: NSAIDs, beta-blockers, antithyroid drugs if needed. Usually self-limited.",
+        "source": "Endocrine Society",
+        "category": "diagnosis",
+        "severity": "high"
+    },
+    
+    "Nodule_Evaluation": {
+        "content": "Thyroid nodule evaluation: palpation + ultrasound. Nodules >1cm require TSH assessment and consider FNA biopsy based on ultrasound features. Nodule with low TSH suggests autonomy, hyperthyroidism risk.",
+        "source": "American Thyroid Association",
+        "category": "diagnostic",
+        "severity": "medium"
+    },
+    
+    "Iodine_Deficiency": {
+        "content": "Iodine deficiency most common cause of hypothyroidism worldwide. Supplementation: 150 mcg/day RDA for adults. Excessive iodine (>1100 mcg/day) can cause hypothyroidism or hyperthyroidism. Salt iodization prevents deficiency.",
+        "source": "WHO Nutritional Guidelines",
+        "category": "prevention",
+        "severity": "medium"
+    },
+    
+    "Graves_Disease_Management": {
+        "content": "Graves' disease treatment options: (1) Antithyroid drugs (PTU/MMI) - first-line, 12-24 month course; (2) Beta-blockers (propranolol) - for symptom control; (3) Radioactive iodine - definitive, causes permanent hypothyroidism; (4) Surgery - for contraindications to other treatments.",
+        "source": "American Thyroid Association",
+        "category": "treatment",
+        "severity": "critical"
+    },
+    
+    "Post_Treatment_Hypothyroidism": {
+        "content": "Post-treatment hypothyroidism common after radioactive iodine (10-20% per year) or thyroid surgery. Screen with TSH annually after treatment. Most patients require levothyroxine replacement. TSH monitoring every 6-8 weeks initially, then annually.",
+        "source": "Endocrine Society",
+        "category": "follow_up",
+        "severity": "high"
+    },
+}
+
+
+class MedicalKnowledgeBase:
+    """
+    Manages medical knowledge base for RAG system.
+    """
+    
+    def __init__(self, kb_path: str = "docs/guidelines/knowledge_base.json"):
+        """
+        Initialize knowledge base.
+        
+        Args:
+            kb_path: Path to save knowledge base
+        """
+        self.kb_path = kb_path
+        self.guidelines = MEDICAL_GUIDELINES
+    
+    def initialize(self):
+        """Create and save knowledge base."""
+        Path(self.kb_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(self.kb_path, 'w') as f:
+            json.dump(self.guidelines, f, indent=2)
+        
+        print(f"✓ Initialized knowledge base with {len(self.guidelines)} guidelines")
+        return self
+    
+    def load(self):
+        """Load knowledge base from file."""
+        with open(self.kb_path, 'r') as f:
+            self.guidelines = json.load(f)
+        return self
+    
+    def get_all_documents(self) -> List[Dict]:
+        """Get all documents for vectorization."""
+        documents = []
+        for key, content in self.guidelines.items():
+            documents.append({
+                'id': key,
+                'content': content['content'],
+                'source': content['source'],
+                'category': content['category'],
+                'severity': content['severity']
+            })
+        return documents
+    
+    def add_guideline(self, key: str, guideline: Dict):
+        """Add new guideline to knowledge base."""
+        self.guidelines[key] = guideline
+        return self
+
+
+# Initialize knowledge base on import
+if __name__ == "__main__":
+    kb = MedicalKnowledgeBase()
+    kb.initialize()
+    print("\n✓ Medical knowledge base created successfully")
