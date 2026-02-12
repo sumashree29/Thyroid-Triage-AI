@@ -97,10 +97,12 @@ thyroid-agentic-ai/
 ## 🎨 Screenshots
 
 ### Main Interface
-![Thyroid Triage AI Interface](docs/screenshot-interface.png)
+![Thyroid Triage AI Interface](https://github.com/user-attachments/assets/96aa5491-d328-4951-aac0-e5c0c46990cb)
+
 
 ### Risk Assessment
-![Risk Assessment](docs/screenshot-results.png)
+![Risk Assessment](https://github.com/user-attachments/assets/3b80b1c1-37ea-4401-870c-289fc4fd93de)
+
 
 ## 📈 Performance
 
@@ -133,9 +135,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-**Your Name**
+**Devasish**
 - GitHub: [@devasish1403](https://github.com/devasish1403)
+
 - LinkedIn: [Adigoppula Devasish](https://linkedin.com/in/adigoppula-devasish)
+
+**Sumashree Dornala**
+- GitHub: [@sumashree29](https://github.com/sumashree29)
+  
+- LinkedIn: [Sumashree Dornala](www.linkedin.com/in/sumashree-dornala)
 
 ## 🙏 Acknowledgments
 
@@ -145,7 +153,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-For questions or collaboration opportunities, please open an issue or contact [your.email@example.com](devasish1403@gmail.com)
+For questions or collaboration opportunities, please open an issue or contact [devasish1403@gmail.com](devasish1403@gmail.com)
 
 ---
 
