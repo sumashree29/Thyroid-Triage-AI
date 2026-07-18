@@ -40,6 +40,11 @@ class TriageOutput:
     workflow_status: str = "success"
     confounder_flags: Optional[list] = None
     conformal_set: Optional[dict] = None
+    clinical_impression: Optional[str] = None
+    key_findings: Optional[list] = None
+    recommendations: Optional[list] = None
+    evidence_citations: Optional[list] = None
+    uncertainty_notes: Optional[list] = None
 
 
 class TriageWorkflow:
@@ -284,7 +289,12 @@ class TriageWorkflow:
                 evidence_sources=[g.source for g in guidelines[:5]],
                 workflow_status="success",
                 confounder_flags=confounder_flags,
-                conformal_set=conformal_result
+                conformal_set=conformal_result,
+                clinical_impression=reasoning.clinical_impression,
+                key_findings=reasoning.key_findings,
+                recommendations=reasoning.recommendations,
+                evidence_citations=reasoning.evidence_citations,
+                uncertainty_notes=reasoning.uncertainty_notes
             )
             
             print("="*60)

@@ -1,95 +1,108 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('triage-form');
     const analyzeBtn = document.getElementById('analyze-btn');
-    const resultPanel = document.getElementById('result-panel');
     const placeholderState = document.getElementById('placeholder-state');
     const resultsContent = document.getElementById('results-content');
 
-    // Result elements
+    // ── Risk Header elements ──
     const categoryEl = document.getElementById('res-category');
     const scoreEl = document.getElementById('res-score');
     const scoreRingEl = document.getElementById('score-ring');
-    const summaryEl = document.getElementById('res-summary');
-    const reportEl = document.getElementById('res-full-report');
-    const confidenceEl = document.getElementById('res-confidence');
-    const idEl = document.getElementById('res-id');
-    const advancedInsightsEl = document.getElementById('advanced-insights');
-    const conformalEl = document.getElementById('res-conformal');
-    const confounderEl = document.getElementById('res-confounder');
+    const idLabelEl = document.getElementById('res-id-label');
 
+    // ── Stat chips ──
+    const chipRisk = document.getElementById('chip-risk');
+    const chipConfidence = document.getElementById('chip-confidence');
+    const chipPredSet = document.getElementById('chip-pred-set');
+    const chipCoverage = document.getElementById('chip-coverage');
+    const chipPredSetWrap = document.getElementById('chip-pred-set-wrap');
+    const chipCoverageWrap = document.getElementById('chip-coverage-wrap');
+
+    // ── Card bodies ──
+    const impressionEl = document.getElementById('res-impression');
+    const confounderBody = document.getElementById('res-confounder-body');
+    const demographicsEl = document.getElementById('res-demographics');
+    const findingsTbody = document.getElementById('findings-tbody');
+    const recommendationsEl = document.getElementById('res-recommendations');
+    const citationsCountEl = document.getElementById('citations-count');
+    const citationsListEl = document.getElementById('res-citations');
+    const uncertaintyListEl = document.getElementById('res-uncertainty');
+    const patientSummaryEl = document.getElementById('res-patient-summary');
+
+    // ── Doctor-only card IDs ──
+    const doctorCards = [
+        'card-impression', 'card-confounder', 'card-findings',
+        'card-recommendations', 'card-citations', 'card-uncertainty'
+    ];
+
+    // Store latest result for view toggling
+    window.latestResultData = null;
+
+    // ════════════════════════════════════════════════════
+    // FORM SUBMISSION
+    // ════════════════════════════════════════════════════
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-
-        // UI - Set Loading
         analyzeBtn.classList.add('loading');
         analyzeBtn.disabled = true;
 
-        // Collect Data
-        const formData = new FormData(form);
-        const data = {
-            patient_id: "P-" + Math.floor(Math.random() * 10000).toString().padStart(4, '0'), // Auto-generate ID
+        const fd = new FormData(form);
+        const payload = {
+            patient_id: 'P-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'),
             patient_data: {
-                age: parseFloat(formData.get('age')),
-                sex: formData.get('sex'),
-                tsh: parseFloat(formData.get('tsh')),
-                t3: formData.get('t3') ? parseFloat(formData.get('t3')) : null,
-                tt4: formData.get('tt4') ? parseFloat(formData.get('tt4')) : null,
-                t4u: formData.get('t4u') ? parseFloat(formData.get('t4u')) : null,
-                fti: formData.get('fti') ? parseFloat(formData.get('fti')) : null,
+                age: parseFloat(fd.get('age')),
+                sex: fd.get('sex'),
+                tsh: parseFloat(fd.get('tsh')),
+                t3:  fd.get('t3')  ? parseFloat(fd.get('t3'))  : null,
+                tt4: fd.get('tt4') ? parseFloat(fd.get('tt4')) : null,
+                t4u: fd.get('t4u') ? parseFloat(fd.get('t4u')) : null,
+                fti: fd.get('fti') ? parseFloat(fd.get('fti')) : null,
             },
-            audience: formData.get('audience'),
-            include_full_report: formData.get('include_full_report') === 'on'
+            audience: fd.get('audience'),
+            include_full_report: fd.get('include_full_report') === 'on'
         };
 
         try {
-            // API Call
-            // Note: Since we are serving this from the API itself, relative path works
-            const response = await fetch('/triage', {
+            const res = await fetch('/triage', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
-
-            if (!response.ok) {
-                const err = await response.json();
+            if (!res.ok) {
+                const err = await res.json();
                 throw new Error(err.detail || 'Analysis failed');
             }
-
-            const result = await response.json();
-
-            // Display Results
-            showResults(result);
-
-        } catch (error) {
-            alert("Error running analysis: " + error.message);
-            console.error(error);
+            showResults(await res.json());
+        } catch (err) {
+            alert('Error running analysis: ' + err.message);
+            console.error(err);
         } finally {
             analyzeBtn.classList.remove('loading');
             analyzeBtn.disabled = false;
         }
     });
 
+    // ════════════════════════════════════════════════════
+    // RENDER RESULTS
+    // ════════════════════════════════════════════════════
     function showResults(data) {
-        // Store data for view toggling
         window.latestResultData = data;
 
-        // Toggle View
+        // Show results panel
         placeholderState.style.display = 'none';
         resultsContent.classList.remove('hidden');
         resultsContent.style.display = 'flex';
 
-        // Fill Data
-        categoryEl.textContent = data.triage_category.replace('_', ' ');
+        // ── 4a. Risk Header ──
+        const cat = data.triage_category || 'ROUTINE';
+        categoryEl.textContent = cat.replace('_', ' ');
+        categoryEl.className = 'triage-badge';
+        scoreRingEl.className = 'circle';
 
-        // Color Coding
-        categoryEl.className = ''; // reset
-        scoreRingEl.className = 'circle'; // reset base class
-        if (data.triage_category === 'URGENT') {
+        if (cat === 'URGENT') {
             categoryEl.classList.add('urgent');
             scoreRingEl.classList.add('urgent');
-        } else if (data.triage_category === 'HIGH_PRIORITY') {
+        } else if (cat === 'HIGH_PRIORITY' || cat === 'HIGH PRIORITY') {
             categoryEl.classList.add('high');
             scoreRingEl.classList.add('high');
         } else {
@@ -97,103 +110,199 @@ document.addEventListener('DOMContentLoaded', () => {
             scoreRingEl.classList.add('routine');
         }
 
-        // Animate Score
-        const scorePct = Math.round(data.risk_score * 100);
-        animateValue(scoreEl, 0, scorePct, 1500);
+        const pct = Math.round(data.risk_score * 100);
+        animateValue(scoreEl, 0, pct, 1200);
+        scoreRingEl.setAttribute('stroke-dasharray', `${pct}, 100`);
 
-        // Animate Ring (stroke-dasharray="current, 100")
-        // The circle path length is approx 100 due to normalized viewbox
-        // We set stroke-dasharray to allow CSS transition
-        scoreRingEl.setAttribute('stroke-dasharray', `${scorePct}, 100`);
+        idLabelEl.textContent = data.patient_id || '';
 
-        // Text Content - Start with Patient View
-        summaryEl.textContent = data.summary || "No summary provided.";
-        let reportText = data.full_report || "No detailed report requested.";
-        reportEl.innerHTML = reportText.replace(/‖\s*(.*?)\s*‖/g, '<span class="ai-section-header">$1</span>');
-        confidenceEl.textContent = (data.confidence * 100).toFixed(1) + "%";
-        idEl.textContent = data.patient_id;
+        // Stat chips
+        chipRisk.textContent = (data.risk_score * 100).toFixed(1) + '%';
+        chipConfidence.textContent = (data.confidence * 100).toFixed(1) + '%';
 
-        // Advanced Insights
-        advancedInsightsEl.style.display = 'block';
-        
         if (data.conformal_set) {
-            let confText = `[${data.conformal_set.prediction_set.join(', ')}]`;
-            confText += ` at ${(data.conformal_set.coverage_level * 100).toFixed(0)}% coverage`;
-            if (data.conformal_set.empty_set) {
-                confText += ` ⚠️ (Model uncertain - Empty Set Fallback)`;
-            }
-            conformalEl.innerHTML = confText;
+            chipPredSet.textContent = '{' + data.conformal_set.prediction_set.join(', ') + '}';
+            chipCoverage.textContent = (data.conformal_set.coverage_level * 100).toFixed(0) + '%';
+            chipPredSetWrap.style.display = '';
+            chipCoverageWrap.style.display = '';
         } else {
-            conformalEl.textContent = "Not computed";
+            chipPredSetWrap.style.display = 'none';
+            chipCoverageWrap.style.display = 'none';
         }
-        
+
+        // ── 4b. Clinical Impression ──
+        impressionEl.textContent = data.clinical_impression || 'No impression available.';
+
+        // ── 4c. Confounder Analysis ──
         if (data.confounder_flags && data.confounder_flags.length > 0) {
-            let flagsHtml = "";
-            data.confounder_flags.forEach(f => {
-                flagsHtml += `<div style="background: rgba(255,165,0,0.1); border-left: 3px solid orange; padding: 4px 8px; margin-bottom: 4px; border-radius: 2px;">
-                                <strong>⚠️ ${f.interference_type}</strong> (${f.confidence} confidence)<br>
-                                <em>${f.recommended_follow_up}</em>
-                              </div>`;
-            });
-            confounderEl.innerHTML = flagsHtml;
+            confounderBody.innerHTML = data.confounder_flags.map(f => `
+                <div class="confounder-flag">
+                    <strong>⚠ ${esc(f.interference_type || 'Confounder detected')}</strong>
+                    <span class="conf-badge">${esc(f.confidence || 'unknown')}</span>
+                    <div class="conf-detail">${esc(f.recommended_follow_up || '')}</div>
+                </div>
+            `).join('');
         } else {
-            confounderEl.textContent = "✓ No interferences detected";
+            confounderBody.innerHTML = '<span class="safe-line">✓ No immunoassay interferences detected</span>';
         }
 
-        // Ensure patient view is active
-        document.getElementById('btn-patient-view').classList.add('active');
-        document.getElementById('btn-doctor-view').classList.remove('active');
-    }
+        // ── 4d. Key Findings ──
+        let demoText = '';
+        const findings = data.key_findings || [];
+        const clinicalFindings = [];
 
-    function animateValue(obj, start, end, duration) {
-        let startTimestamp = null;
-        const step = (timestamp) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            obj.innerHTML = Math.floor(progress * (end - start) + start) + "%";
-            if (progress < 1) {
-                window.requestAnimationFrame(step);
+        findings.forEach(f => {
+            if (f.status === 'info') {
+                demoText += (demoText ? ' · ' : '') + f.marker + ': ' + f.value;
+            } else {
+                clinicalFindings.push(f);
             }
-        };
-        window.requestAnimationFrame(step);
+        });
+
+        demographicsEl.textContent = demoText;
+
+        if (clinicalFindings.length > 0) {
+            findingsTbody.innerHTML = clinicalFindings.map(f => {
+                const dir = (f.direction || f.status || '').toLowerCase();
+                const rangeStr = f.normal_range && f.normal_range !== 'N/A'
+                    ? `${f.value} (${f.normal_range})`
+                    : f.value;
+                return `<tr>
+                    <td>${esc(f.marker)}</td>
+                    <td>${esc(rangeStr)}</td>
+                    <td><span class="direction-badge ${dir}">${esc(f.direction || f.status)}</span></td>
+                </tr>`;
+            }).join('');
+            document.getElementById('card-findings').style.display = '';
+        } else {
+            document.getElementById('card-findings').style.display = 'none';
+        }
+
+        // ── 4e. Recommendations ──
+        const recs = data.recommendations || [];
+        if (recs.length > 0) {
+            recommendationsEl.innerHTML = recs.map(r => `<li>${esc(r)}</li>`).join('');
+            document.getElementById('card-recommendations').style.display = '';
+        } else {
+            document.getElementById('card-recommendations').style.display = 'none';
+        }
+
+        // ── 4f. Citations ──
+        const cites = data.evidence_citations || [];
+        citationsCountEl.textContent = cites.length + ' supporting guideline citation' + (cites.length !== 1 ? 's' : '');
+
+        if (cites.length > 0) {
+            citationsListEl.innerHTML = cites.map(c => `
+                <li class="citation-item">
+                    <span class="citation-source-badge">${esc(c.source)}</span>
+                    <span class="citation-category">${esc(c.category)}</span>
+                    <div style="margin-top:4px;">${esc(c.text)}</div>
+                </li>
+            `).join('');
+            document.getElementById('card-citations').style.display = '';
+        } else {
+            document.getElementById('card-citations').style.display = 'none';
+        }
+
+        // ── 4g. Uncertainty ──
+        const notes = data.uncertainty_notes || [];
+        if (notes.length > 0) {
+            const isSafe = notes.length === 1 && notes[0].includes('Reasonable confidence');
+            uncertaintyListEl.className = 'uncertainty-list' + (isSafe ? ' is-safe' : '');
+            uncertaintyListEl.innerHTML = notes.map(n => `<li>${esc(n)}</li>`).join('');
+            document.getElementById('card-uncertainty').style.display = '';
+        } else {
+            document.getElementById('card-uncertainty').style.display = 'none';
+        }
+
+        // ── Patient summary (hidden by default) ──
+        if (data.summary) {
+            patientSummaryEl.textContent = data.summary;
+        }
+
+        // Default to patient view
+        showPatientView();
     }
 
-    // Store latest result data for view toggling
-    window.latestResultData = null;
-
-    // Toggle View Functions (make them global)
+    // ════════════════════════════════════════════════════
+    // VIEW TOGGLING
+    // ════════════════════════════════════════════════════
     window.showPatientView = function () {
         document.getElementById('btn-patient-view').classList.add('active');
         document.getElementById('btn-doctor-view').classList.remove('active');
 
-        if (window.latestResultData) {
-            // Show patient-friendly summary
-            summaryEl.textContent = window.latestResultData.summary || "No summary available";
-        }
+        // Hide doctor-detail cards, show patient summary
+        doctorCards.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        document.getElementById('card-patient-summary').style.display = '';
     };
 
     window.showDoctorView = function () {
         document.getElementById('btn-doctor-view').classList.add('active');
         document.getElementById('btn-patient-view').classList.remove('active');
 
-        if (window.latestResultData) {
-            // Show detailed clinical report
-            let reportText = window.latestResultData.full_report || "No detailed report available";
-            summaryEl.innerHTML = reportText.replace(/‖\s*(.*?)\s*‖/g, '<span class="ai-section-header">$1</span>');
+        // Show doctor-detail cards, hide patient summary
+        doctorCards.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
+        document.getElementById('card-patient-summary').style.display = 'none';
+
+        // Re-check data-driven visibility
+        const d = window.latestResultData;
+        if (d) {
+            const cf = d.key_findings || [];
+            if (cf.filter(f => f.status !== 'info').length === 0) {
+                document.getElementById('card-findings').style.display = 'none';
+            }
+            if (!(d.recommendations && d.recommendations.length)) {
+                document.getElementById('card-recommendations').style.display = 'none';
+            }
+            if (!(d.evidence_citations && d.evidence_citations.length)) {
+                document.getElementById('card-citations').style.display = 'none';
+            }
+            if (!(d.uncertainty_notes && d.uncertainty_notes.length)) {
+                document.getElementById('card-uncertainty').style.display = 'none';
+            }
         }
     };
 
-    // Check Health on Load
+    // ════════════════════════════════════════════════════
+    // HELPERS
+    // ════════════════════════════════════════════════════
+    function animateValue(el, start, end, duration) {
+        let t0 = null;
+        const step = (ts) => {
+            if (!t0) t0 = ts;
+            const p = Math.min((ts - t0) / duration, 1);
+            el.innerHTML = Math.floor(p * (end - start) + start) + '%';
+            if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    }
+
+    function esc(str) {
+        if (str == null) return '';
+        const d = document.createElement('div');
+        d.textContent = String(str);
+        return d.innerHTML;
+    }
+
+    // ════════════════════════════════════════════════════
+    // HEALTH CHECK
+    // ════════════════════════════════════════════════════
     fetch('/health')
-        .then(res => res.json())
-        .then(data => {
-            const statusEl = document.getElementById('system-status');
-            statusEl.textContent = data.status === 'healthy' ? 'Online' : 'Degraded';
-            statusEl.style.color = data.status === 'healthy' ? 'var(--success)' : 'var(--warning)';
+        .then(r => r.json())
+        .then(d => {
+            const el = document.getElementById('system-status');
+            el.textContent = d.status === 'healthy' ? 'Online' : 'Degraded';
+            el.style.color = d.status === 'healthy' ? 'var(--signal-safe-border)' : 'var(--signal-medium-border)';
         })
-        .catch(err => {
-            const statusEl = document.getElementById('system-status');
-            statusEl.textContent = 'Offline';
-            statusEl.style.color = 'var(--danger)';
+        .catch(() => {
+            const el = document.getElementById('system-status');
+            el.textContent = 'Offline';
+            el.style.color = 'var(--signal-danger-border)';
         });
 });

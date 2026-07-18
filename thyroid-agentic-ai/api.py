@@ -90,6 +90,11 @@ class TriageResponse(BaseModel):
     status: str = Field(..., description="Processing status")
     confounder_flags: Optional[List[Dict]] = Field(None, description="Flags for detected confounders")
     conformal_set: Optional[Dict] = Field(None, description="Conformal prediction set")
+    clinical_impression: Optional[str] = Field(None, description="Clinical impression summary")
+    key_findings: Optional[List[Dict]] = Field(None, description="Key clinical findings structured")
+    recommendations: Optional[List[str]] = Field(None, description="Recommended actions")
+    evidence_citations: Optional[List[Dict]] = Field(None, description="Structured evidence citations")
+    uncertainty_notes: Optional[List[str]] = Field(None, description="Notes on prediction uncertainty")
 
 
 class HealthCheckResponse(BaseModel):
@@ -112,6 +117,16 @@ app = FastAPI(
 
 # MOUNT STATIC FILES FOR UI
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.middleware("http")
+async def add_cache_control_header(request, call_next):
+    """Prevent browser caching for all responses during development."""
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # Global workflow instance
 workflow = None
@@ -233,7 +248,12 @@ async def run_triage(
             evidence_sources=output.evidence_sources,
             status=output.workflow_status,
             confounder_flags=output.confounder_flags,
-            conformal_set=output.conformal_set
+            conformal_set=output.conformal_set,
+            clinical_impression=output.clinical_impression,
+            key_findings=output.key_findings,
+            recommendations=output.recommendations,
+            evidence_citations=output.evidence_citations,
+            uncertainty_notes=output.uncertainty_notes
         )
         
         logger.info(f"✓ Triage complete for {request.patient_id} - {response.triage_category}")

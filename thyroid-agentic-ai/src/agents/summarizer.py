@@ -117,7 +117,15 @@ Model Confidence: {reasoning['confidence']:.1%}
 
 """
         for finding in reasoning['key_findings']:
-            report += f"  {finding}\n"
+            if finding['status'] == 'low':
+                f_str = f"⬇️ {finding['marker']} LOW ({finding['value']}, normal: {finding['normal_range']})"
+            elif finding['status'] == 'high':
+                f_str = f"⬆️ {finding['marker']} HIGH ({finding['value']}, normal: {finding['normal_range']})"
+            elif finding['status'] == 'normal':
+                f_str = f"✓ {finding['marker']} normal ({finding['value']})"
+            else:
+                f_str = f"{finding['marker']}: {finding['value']}"
+            report += f"  {f_str}\n"
         
         report += f"""
 ╔════════════════════════════════════════════════════════════════╗
@@ -135,7 +143,8 @@ Model Confidence: {reasoning['confidence']:.1%}
 
 """
         for citation in reasoning['evidence_citations']:
-            report += f"  • {citation}\n"
+            c_str = f"[{citation['source']}] {citation['category']}: {citation['text'][:80]}..."
+            report += f"  • {c_str}\n"
         
         report += f"""
 ╔════════════════════════════════════════════════════════════════╗

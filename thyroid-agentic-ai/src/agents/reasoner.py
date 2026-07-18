@@ -15,8 +15,8 @@ class ReasoningOutput:
     risk_score: float
     confidence: float
     clinical_impression: str
-    evidence_citations: List[str]
-    key_findings: List[str]
+    evidence_citations: List[Dict]
+    key_findings: List[Dict]
     recommendations: List[str]
     uncertainty_notes: List[str]
     triage_category: str
@@ -172,7 +172,7 @@ class ReasonerAgent:
         
         return ". ".join(impressions) + "."
     
-    def _extract_findings(self, patient_data: Dict, risk_score: float) -> List[str]:
+    def _extract_findings(self, patient_data: Dict, risk_score: float) -> List[Dict]:
         """Extract key clinical findings from patient data."""
         findings = []
         
@@ -189,30 +189,34 @@ class ReasonerAgent:
             value = patient_data.get(marker_key)
             if value is not None:
                 low, high = normal_range
+                range_str = f"{low}-{high}"
                 if value < low:
-                    findings.append(f"⬇️ {marker_name} LOW ({value:.2f}, normal: {low}-{high})")
+                    findings.append({"marker": marker_name, "value": f"{value:.2f}", "normal_range": range_str, "direction": "LOW", "status": "low"})
                 elif value > high:
-                    findings.append(f"⬆️ {marker_name} HIGH ({value:.2f}, normal: {low}-{high})")
+                    findings.append({"marker": marker_name, "value": f"{value:.2f}", "normal_range": range_str, "direction": "HIGH", "status": "high"})
                 else:
-                    findings.append(f"✓ {marker_name} normal ({value:.2f})")
+                    findings.append({"marker": marker_name, "value": f"{value:.2f}", "normal_range": range_str, "direction": "NORMAL", "status": "normal"})
         
         # Demographics
         if 'sex' in patient_data:
-            findings.append(f"Gender: {patient_data['sex']}")
+            findings.append({"marker": "Gender", "value": patient_data['sex'], "normal_range": "N/A", "direction": "N/A", "status": "info"})
         
         return findings
     
-    def _format_citations(self, guidelines: List[Dict]) -> List[str]:
+    def _format_citations(self, guidelines: List[Dict]) -> List[Dict]:
         """Format guidelines as citations."""
         citations = []
         
         for guide in guidelines[:5]:  # Top 5 citations
             source = guide.get('source', 'Unknown')
             category = guide.get('category', 'General')
-            content_preview = guide.get('content', '')[:80]
+            content_preview = guide.get('content', '')
             
-            citation = f"[{source}] {category}: {content_preview}..."
-            citations.append(citation)
+            citations.append({
+                "source": source,
+                "category": category,
+                "text": content_preview
+            })
         
         return citations
     
@@ -245,6 +249,20 @@ class ReasonerAgent:
         Returns:
             Detailed explanation string
         """
+        
+        def format_finding(f):
+            if f['status'] == 'low':
+                return f"⬇️ {f['marker']} LOW ({f['value']}, normal: {f['normal_range']})"
+            elif f['status'] == 'high':
+                return f"⬆️ {f['marker']} HIGH ({f['value']}, normal: {f['normal_range']})"
+            elif f['status'] == 'normal':
+                return f"✓ {f['marker']} normal ({f['value']})"
+            else:
+                return f"{f['marker']}: {f['value']}"
+                
+        def format_cite(c):
+            return f"[{c['source']}] {c['category']}: {c['text'][:80]}..."
+
         explanation = f"""
 === CLINICAL REASONING SUMMARY ===
 
@@ -252,10 +270,10 @@ IMPRESSION:
 {reasoning.clinical_impression}
 
 KEY FINDINGS:
-{chr(10).join(f"  • {f}" for f in reasoning.key_findings)}
+{chr(10).join(f"  • {format_finding(f)}" for f in reasoning.key_findings)}
 
 EVIDENCE BASIS:
-{chr(10).join(f"  • {c}" for c in reasoning.evidence_citations)}
+{chr(10).join(f"  • {format_cite(c)}" for c in reasoning.evidence_citations)}
 
 RECOMMENDED ACTIONS:
 {chr(10).join(f"  {i+1}. {r}" for i, r in enumerate(reasoning.recommendations))}
