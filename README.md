@@ -1,160 +1,108 @@
-# 🏥 Thyroid Triage AI
+# Thyroid Triage AI
 
-**Intelligent Clinical Decision Support System for Automated Thyroid Disease Screening**
+A confounder-aware, uncertainty-calibrated multi-agent clinical decision-support system for thyroid function triage.
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
-![ML](https://img.shields.io/badge/ML-scikit--learn-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-
-## 📋 Overview
-
-Thyroid Triage AI is a multi-agent AI system that automates thyroid disease patient triaging using machine learning and clinical pattern recognition. It analyzes multiple thyroid hormones (TSH, T3, T4, FTI) to provide instant risk assessment, triage prioritization, and evidence-based recommendations.
-
-### ✨ Key Features
-
-- 🤖 **Multi-Agent Architecture**: 4 specialized AI agents (Risk Scorer, Retriever, Reasoner, Summarizer)
-- 🧠 **Hybrid AI**: Combines Random Forest ML (87% accuracy) with rule-based clinical pattern recognition
-- 📊 **Multi-Hormone Analysis**: Analyzes TSH, T3, T4, and FTI together (not just TSH)
-- 👥 **Dual Perspectives**: Generates tailored reports for both patients and doctors
-- ⚡ **Real-Time**: < 2 second analysis per patient
-- 📚 **Evidence-Based**: Backed by ATA 2016 and Endocrine Society guidelines
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/thyroid-agentic-ai.git
-cd thyroid-agentic-ai
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-python api.py
-
-# Open browser
-# Navigate to http://localhost:8000
-```
-
-## 🎯 How It Works
-
-```
-Patient Input → Multi-Agent System → Risk Assessment → Triage Priority → Personalized Report
-                ├─ Risk Scorer   (ML + Clinical Rules)
-                ├─ Retriever     (Clinical Guidelines)
-                ├─ Reasoner      (Evidence Linking)
-                └─ Summarizer    (Report Generation)
-```
-
-## 📊 Example
-
-**Input:**
-```json
-{
-  "age": 52,
-  "sex": "F",
-  "tsh": 8.5,
-  "t4": 65,
-  "fti": 55
-}
-```
-
-**Output:**
-- Risk Score: **88%**
-- Priority: **URGENT**
-- Pattern: Primary Hypothyroidism
-- Recommendation: Urgent endocrine referral
-
-## 🛠️ Technology Stack
-
-- **Backend**: Python, FastAPI, Pydantic
-- **ML**: scikit-learn (Random Forest), pandas, numpy
-- **RAG**: ChromaDB, LangChain
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Data**: 3,774 patient thyroid records
-
-## 📁 Project Structure
-
-```
-thyroid-agentic-ai/
-├── api.py                    # FastAPI application
-├── src/
-│   ├── agents/              # 4 AI agents
-│   │   ├── risk_scoring.py
-│   │   ├── retriever.py
-│   │   ├── reasoner.py
-│   │   └── summarizer.py
-│   └── core/
-│       └── workflow.py      # Multi-agent orchestrator
-├── models/
-│   ├── risk_classifier.pkl  # Trained Random Forest
-│   └── encoder.pkl          # Feature preprocessor
-├── static/                  # Web UI
-└── data/                    # Training data
-```
-
-## 🎨 Screenshots
-
-### Main Interface
-![Thyroid Triage AI Interface](https://github.com/user-attachments/assets/96aa5491-d328-4951-aac0-e5c0c46990cb)
-
-
-### Risk Assessment
-![Risk Assessment](https://github.com/user-attachments/assets/3b80b1c1-37ea-4401-870c-289fc4fd93de)
-
-
-## 📈 Performance
-
-- **ML Accuracy**: 87% (validation)
-- **Processing Time**: < 2 seconds
-- **Training Data**: 3,774 patients
-- **Confidence Scoring**: ✅
-- **Triage Categories**: URGENT, HIGH_PRIORITY, ROUTINE
-
-## 🔬 Clinical Accuracy
-
-The system uses clinical thresholds from:
-- American Thyroid Association (ATA) 2016 Guidelines
-- Endocrine Society Clinical Practice Guidelines
-- Evidence-based medicine protocols
-
-**Normal Ranges:**
-- TSH: 0.45-4.5 mIU/L
-- T3: 0.8-2.0 ng/dL
-- T4: 70-150 μg/dL
-- FTI: 70-150
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Author
-
-**Devasish**
-- GitHub: [@devasish1403](https://github.com/devasish1403)
-
-- LinkedIn: [Adigoppula Devasish](https://linkedin.com/in/adigoppula-devasish)
-
-**Sumashree Dornala**
-- GitHub: [@sumashree29](https://github.com/sumashree29)
-  
-- LinkedIn: [Sumashree Dornala](www.linkedin.com/in/sumashree-dornala)
-
-## 🙏 Acknowledgments
-
-- Dataset: UCI Machine Learning Repository
-- Clinical Guidelines: American Thyroid Association
-- Inspiration: Improving healthcare accessibility through AI
-
-## 📧 Contact
-
-For questions or collaboration opportunities, please open an issue or contact [devasish1403@gmail.com](devasish1403@gmail.com)
+**Author:** Sumashree Dornala
 
 ---
 
-⭐ **Star this repository if you find it helpful!**
+## Overview
+
+Thyroid Triage AI takes a patient's thyroid hormone panel (TSH, T3, TT4, T4U, FTI) alongside demographic and clinical context, and produces an automated triage recommendation with two things most thyroid-classification systems don't offer: **explicit detection of lab-interference confounders** (biotin interference, macro-TSH, discordant assay patterns, non-thyroidal illness) and **statistically calibrated uncertainty** on every prediction via conformal prediction, rather than a bare, overconfident point estimate.
+
+The system is built as a five-agent pipeline, each stage auditable independently:
+
+```
+Patient Data
+   → Risk Scorer          (Random Forest, multi-class: Low / Medium / High)
+   → Confounder Detector  (rule-based interference screening)
+   → Conformal Wrapper    (calibrated prediction sets, coverage guarantee)
+   → Retriever            (RAG over clinical guideline evidence)
+   → Reasoner             (structured clinical impression + findings)
+   → Summarizer           (doctor-facing and patient-facing reports)
+```
+
+---
+
+## What's novel here
+
+Most public thyroid-ML projects optimize for classifier accuracy on a static dataset and stop there. This system addresses three gaps identified in the current literature and in the original codebase this project builds on:
+
+- **Confounder-Detection Agent** — operationalizes a published clinical interference-screening algorithm (Favresse et al., *Endocrine Reviews*, 2018) as an automated pre-triage check, flagging lab patterns inconsistent with true thyroid pathology (e.g., normal TSH with elevated free hormones — a biotin/assay interference signature) rather than letting the classifier triage them at face value. Validated on both synthetically injected interference cases and a real held-out set of natively discordant (`R`-class) patients from the UCI thyroid dataset.
+- **Conformal Prediction Wrapper** — replaces the classifier's raw probability output with a calibrated prediction set carrying a formal coverage guarantee (e.g., "the true risk tier is in this set with 95% confidence"), computed via a held-out calibration split, distinct from bootstrap-based approaches used elsewhere in the literature.
+- **Real diagnostic labels** — the project's underlying classification task was originally built on a synthetic, single-feature-derived label (a hard TSH threshold), which produced artificially perfect accuracy and masked any real uncertainty. This was identified and corrected by re-sourcing the full multi-class UCI thyroid diagnostic taxonomy (`thyroid0387`) and remapping it into a clinically grounded three-tier risk system, giving the classifier — and the conformal wrapper built on top of it — an actual, non-trivial task to learn.
+
+---
+
+## Architecture
+
+| Component | Role |
+|---|---|
+| `src/agents/risk_scoring.py` | Random Forest classifier over the thyroid hormone panel, trained on real multi-class diagnostic labels |
+| `src/agents/confounder.py` | Rule-based screen for biotin interference, macro-TSH, incoherent TSH/FT4 patterns, and non-thyroidal illness |
+| `src/core/conformal.py` | Score-based conformal prediction wrapper producing calibrated, coverage-guaranteed prediction sets |
+| `src/agents/retriever.py` | Retrieval-augmented evidence lookup against ATA/Endocrine Society clinical guidelines |
+| `src/agents/reasoner.py` | Synthesizes risk score, confounder flags, conformal uncertainty, and retrieved evidence into a structured clinical impression |
+| `src/agents/summarizer.py` | Generates separate doctor-facing (technical) and patient-facing (plain-language) reports |
+| `api.py` | FastAPI service exposing `/triage`, `/batch-triage`, `/health`, and `/about` |
+| `static/` | Web frontend for interactive triage input and report visualization |
+
+---
+
+## Evaluation
+
+Evaluated on a held-out test split of the UCI Thyroid Disease dataset (~3,772 patients), with a separate calibration split for conformal prediction and a synthetic interference-injection set plus a natively-labeled real confounder set for validating the interference detector:
+
+- **Baseline classifier accuracy:** 97.88% on real multi-class diagnostic labels
+- **Confounder detection:** strong recall on synthetic interference patterns; ~15% recall on natively occurring discordant (`R`-class) real patient cases, with an 8.13% false-positive rate on genuine normals — reported honestly as a limitation motivating future learned or LLM-assisted detection, not oversold as a solved problem
+- **Conformal prediction:** empirical coverage tracking the target confidence level, with explicit (not silently masked) handling of low-confidence "empty set" cases
+
+Full evaluation methodology and results are in `results/evaluation_log.csv` and the accompanying build documentation.
+
+---
+
+## Tech Stack
+
+Python · FastAPI · scikit-learn · pandas · conformal prediction (score-based / LAC method) · RAG-based evidence retrieval · HTML/CSS/JS frontend
+
+---
+
+## Getting Started
+
+```bash
+git clone https://github.com/sumashree29/Thyroid-Triage-AI.git
+cd Thyroid-Triage-AI
+pip install -r requirements.txt
+python train_model.py                     # trains on real diagnostic labels
+python scripts/calibrate_conformal.py      # computes conformal calibration threshold
+uvicorn api:app --reload
+```
+
+Then open `http://localhost:8000` for the interactive triage interface, or POST to `/triage` directly.
+
+---
+
+## Limitations
+
+- Confounder detection rules are threshold-based and calibrated primarily against synthetic interference patterns; real-world interference presents with more diversity than static rules currently capture.
+- Evaluation is single-dataset (UCI Thyroid Disease); prospective clinical validation on an independent patient population has not been performed.
+- This system is intended for clinical decision **support**, not autonomous diagnosis — all outputs require review by a qualified healthcare provider.
+
+---
+
+## Citation
+
+If you use this work, please cite the associated paper (details to follow upon publication).
+
+---
+
+## Author
+
+**Sumashree Dornala**
+Final-year B.Tech Data Science, GRIET, Hyderabad
+
+---
+
+## License
+
+MIT License
