@@ -15,6 +15,8 @@ from agents.risk_scoring import RiskScoringAgent, RiskScore
 from agents.retriever import RetrieverAgent
 from agents.reasoner import ReasonerAgent, ReasoningOutput
 from agents.summarizer import SummarizerAgent, SummaryOutput
+from agents.confounder import ConfounderAgent
+from core.conformal import ConformalWrapper
 
 
 @dataclass
@@ -36,6 +38,8 @@ class TriageOutput:
     patient_summary: str
     evidence_sources: list
     workflow_status: str = "success"
+    confounder_flags: Optional[list] = None
+    conformal_set: Optional[dict] = None
 
 
 class TriageWorkflow:
@@ -103,6 +107,22 @@ class TriageWorkflow:
         except Exception as e:
             print(f"⚠️  Agent 4 (Summarizer): {e}")
             self.summarizer = None
+            
+        # Initialize Agent 5: Confounder Detector
+        try:
+            self.confounder_agent = ConfounderAgent()
+            print("✓ Agent 5 (Confounder Detector): Initialized")
+        except Exception as e:
+            print(f"⚠️  Agent 5 (Confounder Detector): {e}")
+            self.confounder_agent = None
+            
+        # Initialize Conformal Wrapper
+        try:
+            self.conformal_wrapper = ConformalWrapper()
+            print("✓ Conformal Wrapper: Initialized")
+        except Exception as e:
+            print(f"⚠️  Conformal Wrapper: {e}")
+            self.conformal_wrapper = None
         
         print("\n" + "="*60 + "\n")
     
@@ -132,6 +152,36 @@ class TriageWorkflow:
             if risk_result.uncertainty_flags:
                 for flag in risk_result.uncertainty_flags:
                     print(f"  ⚠️  {flag}")
+            print()
+            
+            # ============================================================
+            # STEP 1B: CONFOUNDER DETECTION AGENT
+            # ============================================================
+            print("→ STEP 1B: Confounder Detection")
+            try:
+                confounder_flags = self.confounder_agent.detect(triage_input.patient_data)
+                if confounder_flags:
+                    print(f"  ⚠️  Detected {len(confounder_flags)} potential confounders/interferences.")
+                    for flag in confounder_flags:
+                         print(f"    - {flag['interference_type']} ({flag['confidence']} confidence)")
+                else:
+                    print("  ✓ No immunoassay interferences detected.")
+            except Exception as e:
+                print(f"  ⚠️  Confounder detection failed: {e}")
+                confounder_flags = []
+            print()
+            
+            # ============================================================
+            # STEP 1C: CONFORMAL PREDICTION
+            # ============================================================
+            print("→ STEP 1C: Conformal Prediction Calibration")
+            try:
+                prob_vector = {0: 1.0 - risk_result.risk_score, 1: risk_result.risk_score}
+                conformal_result = self.conformal_wrapper.get_prediction_set(prob_vector)
+                print(f"  Prediction Set: {conformal_result['prediction_set']} at {conformal_result['coverage_level']*100:.0f}% coverage")
+            except Exception as e:
+                print(f"  ⚠️  Conformal wrapper failed: {e}")
+                conformal_result = None
             print()
             
             # ============================================================
@@ -184,7 +234,9 @@ class TriageWorkflow:
                 confidence=risk_result.confidence,
                 guidelines=guidelines_dict,
                 patient_data=triage_input.patient_data,
-                uncertainty_flags=risk_result.uncertainty_flags
+                uncertainty_flags=risk_result.uncertainty_flags,
+                confounder_flags=confounder_flags,
+                conformal_set=conformal_result
             )
             
             print(f"  Triage Category: {reasoning.triage_category}")
@@ -207,7 +259,9 @@ class TriageWorkflow:
                 'evidence_citations': reasoning.evidence_citations,
                 'recommendations': reasoning.recommendations,
                 'uncertainty_notes': reasoning.uncertainty_notes,
-                'triage_category': reasoning.triage_category
+                'triage_category': reasoning.triage_category,
+                'confounder_flags': confounder_flags,
+                'conformal_set': conformal_result
             }
             
             summary = self.summarizer.summarize(reasoning_dict)
@@ -228,7 +282,9 @@ class TriageWorkflow:
                 doctor_report=summary.doctor_report,
                 patient_summary=summary.patient_summary,
                 evidence_sources=[g.source for g in guidelines[:5]],
-                workflow_status="success"
+                workflow_status="success",
+                confounder_flags=confounder_flags,
+                conformal_set=conformal_result
             )
             
             print("="*60)

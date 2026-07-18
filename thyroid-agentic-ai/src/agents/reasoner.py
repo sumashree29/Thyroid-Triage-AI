@@ -75,7 +75,9 @@ class ReasonerAgent:
         confidence: float,
         guidelines: List[Dict],
         patient_data: Dict,
-        uncertainty_flags: List[str] = None
+        uncertainty_flags: List[str] = None,
+        confounder_flags: List[Dict] = None,
+        conformal_set: Dict = None
     ) -> ReasoningOutput:
         """
         Generate clinical reasoning combining model and evidence.
@@ -86,6 +88,8 @@ class ReasonerAgent:
             guidelines: Retrieved clinical guidelines
             patient_data: Patient clinical parameters
             uncertainty_flags: Uncertainty flags from risk scorer
+            confounder_flags: Flags from ConfounderAgent
+            conformal_set: Output from ConformalWrapper
             
         Returns:
             ReasoningOutput with evidence-backed reasoning
@@ -96,7 +100,7 @@ class ReasonerAgent:
         triage_category = self._categorize_risk(risk_score)
         
         # Generate clinical impression
-        clinical_impression = self._generate_impression(risk_score, patient_data, triage_category)
+        clinical_impression = self._generate_impression(risk_score, patient_data, triage_category, confounder_flags)
         
         # Extract key findings from patient data
         key_findings = self._extract_findings(patient_data, risk_score)
@@ -108,7 +112,7 @@ class ReasonerAgent:
         evidence_citations = self._format_citations(guidelines)
         
         # Consolidate uncertainty notes
-        uncertainty_notes = self._prepare_uncertainty_notes(uncertainty_flags, confidence)
+        uncertainty_notes = self._prepare_uncertainty_notes(uncertainty_flags, confidence, conformal_set)
         
         return ReasoningOutput(
             risk_score=risk_score,
@@ -130,7 +134,7 @@ class ReasonerAgent:
         else:
             return 'low_risk'
     
-    def _generate_impression(self, risk_score: float, patient_data: Dict, category: str) -> str:
+    def _generate_impression(self, risk_score: float, patient_data: Dict, category: str, confounder_flags: List[Dict] = None) -> str:
         """Generate clinical impression from data."""
         
         tsh = patient_data.get('tsh', None)
@@ -161,6 +165,10 @@ class ReasonerAgent:
             impressions.append("Moderate risk - close monitoring and possible treatment")
         else:
             impressions.append("Low risk - routine monitoring appropriate")
+            
+        if confounder_flags:
+            for flag in confounder_flags:
+                impressions.append(f"Note: {flag.get('recommended_follow_up', '')}")
         
         return ". ".join(impressions) + "."
     
@@ -208,7 +216,7 @@ class ReasonerAgent:
         
         return citations
     
-    def _prepare_uncertainty_notes(self, uncertainty_flags: List[str], confidence: float) -> List[str]:
+    def _prepare_uncertainty_notes(self, uncertainty_flags: List[str], confidence: float, conformal_set: Dict = None) -> List[str]:
         """Prepare notes about prediction uncertainty."""
         notes = []
         
@@ -216,6 +224,11 @@ class ReasonerAgent:
             notes.append("⚠️ Low model confidence - clinical judgment essential")
         
         notes.extend(uncertainty_flags)
+        
+        if conformal_set and conformal_set.get("set_size", 1) > 1:
+            notes.append(f"Model confidence is limited for this patient — "
+                         f"risk category could be any of {conformal_set['prediction_set']} "
+                         f"at {conformal_set['coverage_level']*100:.0f}% confidence.")
         
         if not notes:
             notes.append("✓ Reasonable confidence in prediction")

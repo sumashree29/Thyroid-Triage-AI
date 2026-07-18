@@ -39,7 +39,7 @@ warnings.filterwarnings('ignore')
 
 
 class ThyroidModelTrainer:
-    def __init__(self, data_path: str = 'data/raw/Thyroid_Data.csv', output_dir: str = 'output'):
+    def __init__(self, data_path: str = 'data/raw/Thyroid_Data_multiclass.csv', output_dir: str = 'models'):
         self.data_path = Path(data_path)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -48,7 +48,7 @@ class ThyroidModelTrainer:
         self.preprocessor = None
         self.model = None
 
-        self.numeric_features = ['age', 'tsh', 't3', 'tt4', 't4u', 'fti']
+        self.numeric_features = ['age', 'tsh', 't3', 'tt4', 't4u', 'fti', 'tbg']
         self.categorical_features = []
 
         self.X_train = None
@@ -71,17 +71,10 @@ class ThyroidModelTrainer:
         return self
 
     def engineer_target(self):
-        print('Engineering binary target using TSH thresholds')
-        def derive(tsh):
-            if pd.isna(tsh):
-                return 0
-            return 1 if (tsh > 4.5 or tsh < 0.45) else 0
-
+        print('Using real diagnostic labels from data source')
         if 'target' not in self.df.columns:
-            if 'tsh' in self.df.columns:
-                self.df['target'] = self.df['tsh'].apply(derive)
-            else:
-                self.df['target'] = np.random.randint(0, 2, size=len(self.df))
+             raise ValueError("target column not found in labeled dataset")
+             
         print('Target distribution:\n', self.df['target'].value_counts())
         return self
 
@@ -123,9 +116,19 @@ class ThyroidModelTrainer:
         y = self.df['target']
 
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
-            X, y, test_size=test_size, stratify=y, random_state=random_state
+            X, y, test_size=test_size, stratify=y, random_state=42
         )
         print('Train/Test sizes:', self.X_train.shape, self.X_test.shape)
+        
+        # Save splits to data/processed for downstream use
+        processed_dir = Path('data/processed')
+        processed_dir.mkdir(parents=True, exist_ok=True)
+        self.X_train.to_csv(processed_dir / 'X_train.csv', index=False)
+        self.X_test.to_csv(processed_dir / 'X_test.csv', index=False)
+        self.y_train.to_frame(name='target').to_csv(processed_dir / 'y_train.csv', index=False)
+        self.y_test.to_frame(name='target').to_csv(processed_dir / 'y_test.csv', index=False)
+        print('Saved data splits to data/processed')
+        
         return self
 
     def fit_preprocessor(self):
@@ -150,8 +153,6 @@ class ThyroidModelTrainer:
         models = {
             'RandomForest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1, class_weight='balanced')
         }
-        if _HAS_XGB:
-            models['XGBoost'] = xgb.XGBClassifier(n_estimators=100, use_label_encoder=False, eval_metric='logloss', random_state=42)
 
         best_auc = -1
         best_name = None
@@ -160,26 +161,33 @@ class ThyroidModelTrainer:
             print('Training', name)
             cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             try:
-                scores = cross_val_score(m, X_train_t, self.y_train, cv=cv, scoring='roc_auc')
-                print(f'  CV AUC: {scores.mean():.4f} (+/- {scores.std():.4f})')
+                scores = cross_val_score(m, X_train_t, self.y_train, cv=cv, scoring='f1_macro')
+                print(f'  CV F1 Macro: {scores.mean():.4f} (+/- {scores.std():.4f})')
             except Exception as e:
                 print('  CV failed:', e)
 
             m.fit(X_train_t, self.y_train)
-            proba = m.predict_proba(X_test_t)[:, 1]
+            proba = m.predict_proba(X_test_t)
             pred = m.predict(X_test_t)
-            auc_score = roc_auc_score(self.y_test, proba)
-            f1 = f1_score(self.y_test, pred)
-            print(f'  Test AUC: {auc_score:.4f}, F1: {f1:.4f}')
+            
+            try:
+                auc_score = roc_auc_score(self.y_test, proba, multi_class='ovr')
+            except Exception:
+                auc_score = 0.0
+                
+            f1_mac = f1_score(self.y_test, pred, average='macro')
+            f1_wei = f1_score(self.y_test, pred, average='weighted')
+            print(f'  Test AUC: {auc_score:.4f}, Macro F1: {f1_mac:.4f}, Weighted F1: {f1_wei:.4f}')
 
-            if auc_score > best_auc:
-                best_auc = auc_score
+            # We use f1_mac to select best model now
+            if f1_mac > best_auc:
+                best_auc = f1_mac
                 best_name = name
                 self.model = m
                 self.y_pred = pred
                 self.y_pred_proba = proba
 
-        print('Best model:', best_name, 'AUC:', best_auc)
+        print('Best model:', best_name, 'Macro F1:', best_auc)
         self.metrics['best_model'] = best_name
         self.metrics['best_auc'] = float(best_auc)
         return self
@@ -193,23 +201,32 @@ class ThyroidModelTrainer:
         cm = confusion_matrix(self.y_test, self.y_pred).tolist()
         self.metrics['confusion_matrix'] = cm
         # AUC / PR
-        auc_score = roc_auc_score(self.y_test, self.y_pred_proba)
-        pr = average_precision_score(self.y_test, self.y_pred_proba)
-        self.metrics['roc_auc'] = float(auc_score)
-        self.metrics['average_precision'] = float(pr)
+        try:
+            auc_score = roc_auc_score(self.y_test, self.y_pred_proba, multi_class='ovr')
+        except:
+            auc_score = 0.0
+            
+        f1_mac = f1_score(self.y_test, self.y_pred, average='macro')
+        f1_wei = f1_score(self.y_test, self.y_pred, average='weighted')
+        
+        self.metrics['roc_auc_ovr'] = float(auc_score)
+        self.metrics['f1_macro'] = float(f1_mac)
+        self.metrics['f1_weighted'] = float(f1_wei)
 
-        print('ROC AUC:', auc_score)
-        print('Average precision:', pr)
+        print('ROC AUC (OVR):', auc_score)
+        print('Macro F1:', f1_mac)
+        print('Weighted F1:', f1_wei)
+        print('Confusion Matrix:\n', confusion_matrix(self.y_test, self.y_pred))
         return self
 
     def save_artifacts(self):
         print('Saving artifacts to', self.output_dir)
-        models_dir = self.output_dir / 'models'
+        models_dir = self.output_dir
         models_dir.mkdir(parents=True, exist_ok=True)
 
-        with open(models_dir / 'preprocessor.pkl', 'wb') as f:
+        with open(models_dir / 'encoder.pkl', 'wb') as f:
             pickle.dump(self.preprocessor, f)
-        with open(models_dir / 'model.pkl', 'wb') as f:
+        with open(models_dir / 'risk_classifier.pkl', 'wb') as f:
             pickle.dump(self.model, f)
         with open(models_dir / 'metrics.json', 'w') as f:
             json.dump(self.metrics, f, indent=2)

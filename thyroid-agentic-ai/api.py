@@ -88,6 +88,8 @@ class TriageResponse(BaseModel):
     full_report: Optional[str] = Field(None, description="Full report (if requested)")
     evidence_sources: List[str] = Field(..., description="Evidence citations")
     status: str = Field(..., description="Processing status")
+    confounder_flags: Optional[List[Dict]] = Field(None, description="Flags for detected confounders")
+    conformal_set: Optional[Dict] = Field(None, description="Conformal prediction set")
 
 
 class HealthCheckResponse(BaseModel):
@@ -229,7 +231,9 @@ async def run_triage(
             summary=get_summary(output, request.audience),
             full_report=output.doctor_report if request.include_full_report else None,
             evidence_sources=output.evidence_sources,
-            status=output.workflow_status
+            status=output.workflow_status,
+            confounder_flags=output.confounder_flags,
+            conformal_set=output.conformal_set
         )
         
         logger.info(f"✓ Triage complete for {request.patient_id} - {response.triage_category}")

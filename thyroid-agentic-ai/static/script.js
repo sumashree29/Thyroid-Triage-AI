@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportEl = document.getElementById('res-full-report');
     const confidenceEl = document.getElementById('res-confidence');
     const idEl = document.getElementById('res-id');
+    const advancedInsightsEl = document.getElementById('advanced-insights');
+    const conformalEl = document.getElementById('res-conformal');
+    const confounderEl = document.getElementById('res-confounder');
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -105,9 +108,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Text Content - Start with Patient View
         summaryEl.textContent = data.summary || "No summary provided.";
-        reportEl.textContent = data.full_report || "No detailed report requested.";
+        let reportText = data.full_report || "No detailed report requested.";
+        reportEl.innerHTML = reportText.replace(/‖\s*(.*?)\s*‖/g, '<span class="ai-section-header">$1</span>');
         confidenceEl.textContent = (data.confidence * 100).toFixed(1) + "%";
         idEl.textContent = data.patient_id;
+
+        // Advanced Insights
+        advancedInsightsEl.style.display = 'block';
+        
+        if (data.conformal_set) {
+            let confText = `[${data.conformal_set.prediction_set.join(', ')}]`;
+            confText += ` at ${(data.conformal_set.coverage_level * 100).toFixed(0)}% coverage`;
+            if (data.conformal_set.empty_set) {
+                confText += ` ⚠️ (Model uncertain - Empty Set Fallback)`;
+            }
+            conformalEl.innerHTML = confText;
+        } else {
+            conformalEl.textContent = "Not computed";
+        }
+        
+        if (data.confounder_flags && data.confounder_flags.length > 0) {
+            let flagsHtml = "";
+            data.confounder_flags.forEach(f => {
+                flagsHtml += `<div style="background: rgba(255,165,0,0.1); border-left: 3px solid orange; padding: 4px 8px; margin-bottom: 4px; border-radius: 2px;">
+                                <strong>⚠️ ${f.interference_type}</strong> (${f.confidence} confidence)<br>
+                                <em>${f.recommended_follow_up}</em>
+                              </div>`;
+            });
+            confounderEl.innerHTML = flagsHtml;
+        } else {
+            confounderEl.textContent = "✓ No interferences detected";
+        }
 
         // Ensure patient view is active
         document.getElementById('btn-patient-view').classList.add('active');
@@ -147,7 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (window.latestResultData) {
             // Show detailed clinical report
-            summaryEl.textContent = window.latestResultData.full_report || "No detailed report available";
+            let reportText = window.latestResultData.full_report || "No detailed report available";
+            summaryEl.innerHTML = reportText.replace(/‖\s*(.*?)\s*‖/g, '<span class="ai-section-header">$1</span>');
         }
     };
 

@@ -81,13 +81,36 @@ class SummarizerAgent:
 Triage Category: {triage_level}
 Risk Score: {reasoning['risk_score']:.1%}
 Model Confidence: {reasoning['confidence']:.1%}
-
+"""
+        
+        conformal_set = reasoning.get('conformal_set')
+        if conformal_set:
+            report += f"Prediction Set: {{{', '.join(conformal_set['prediction_set'])}}}\n"
+            report += f"Coverage: {conformal_set['coverage_level']*100:.0f}%\n"
+            report += f"Set Size: {conformal_set['set_size']}\n"
+            
+        report += f"""
 ╔════════════════════════════════════════════════════════════════╗
 ║ CLINICAL IMPRESSION                                            ║
 ╚════════════════════════════════════════════════════════════════╝
 
 {reasoning['clinical_impression']}
 
+╔════════════════════════════════════════════════════════════════╗
+║ CONFOUNDER ANALYSIS                                            ║
+╚════════════════════════════════════════════════════════════════╝
+
+"""
+        confounders = reasoning.get('confounder_flags', [])
+        if confounders:
+            for flag in confounders:
+                report += f"  ⚠️  {flag.get('interference_type', 'Confounder detected')}\n"
+                report += f"     - Confidence: {flag.get('confidence', 'Unknown')}\n"
+                report += f"     - Recommended follow-up: {flag.get('recommended_follow_up', '')}\n"
+        else:
+            report += "  ✓ No immunoassay interferences or confounders detected.\n"
+            
+        report += f"""
 ╔════════════════════════════════════════════════════════════════╗
 ║ KEY FINDINGS                                                   ║
 ╚════════════════════════════════════════════════════════════════╝

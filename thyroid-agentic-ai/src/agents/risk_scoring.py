@@ -233,6 +233,12 @@ class RiskScoringAgent:
             if col not in df.columns:
                 df[col] = 0
                 
+        # 3. Handle missing numeric features that the encoder expects
+        numeric_features = ['age', 'tsh', 't3', 'tt4', 't4u', 'fti', 'tbg']
+        for col in numeric_features:
+            if col not in df.columns:
+                df[col] = np.nan
+                
         return df
 
     def explain_risk(self, risk_score: RiskScore) -> str:
