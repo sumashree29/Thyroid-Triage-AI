@@ -24,6 +24,19 @@ Patient Data
 
 ---
 
+## Screenshots
+
+**Triage Input Form**
+![Triage Input Form](assets/ui_form.png)
+
+**Patient-Facing Report**
+![Patient View](assets/patient_view.png)
+
+**Clinician-Facing Technical Report**
+![Clinician View](assets/clinician_view.png)
+
+---
+
 ## What's novel here
 
 Most public thyroid-ML projects optimize for classifier accuracy on a static dataset and stop there. This system addresses three gaps identified in the current literature and in the original codebase this project builds on:
